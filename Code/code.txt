@@ -1,0 +1,59 @@
+#!/bin/sh
+# Script File for image capture & store in PenDriver
+
+#Date as time stamp as filename for captured image
+DATE=$(date +"%Y-%m-%d_%H_%M")
+
+#Inform with the beep sound
+sudo echo 11 > /sys/class/gpio/export
+sudo echo out > /sys/class/gpio/gpio11/direction
+
+echo 9 > /sys/class/gpio/export
+echo in > /sys/class/gpio/gpio9/direction
+
+blinkcheck() {
+	timecnt=0	
+	blinkcnt=0
+	while [ "$timecnt" -le 30 ]; do
+		read SEN_IP < /sys/class/gpio/gpio9/value
+		if [ "$SEN_IP" -eq 0 ]
+		 then
+			blinkcnt=$((blinkcnt+1))
+		fi
+		sleep 0.1
+		timecnt=$((timecnt+1))
+	done
+	return "$blinkcnt"
+}
+
+while :
+
+do
+
+	blinkcheck
+	blink=$?
+	echo "$blink"
+
+	while [ "$blink" -le 5 ]; do 
+		blinkcheck
+		blink=$?
+		echo "$blink"
+	done
+
+	echo "Blink Detected"
+
+	#Mount pen driver (sda1 into /media/mntA
+	sudo mount /dev/sda1 /media/mnt
+
+	sudo echo 1 > /sys/class/gpio/gpio11/value
+
+	#capture image to fswecam utility as store in pendriver
+	sudo fswebcam -r 1280*720 /media/mnt/$DATE.jpg --no-banner
+
+	sudo echo 0 > /sys/class/gpio/gpio11/value
+
+	#UnMount the pendriver
+	sudo umount /media/mnt
+done
+
+exit 0
